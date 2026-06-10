@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>카카오톡 백업 뷰어</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --kakao-bg: #b2c7d9;
+    --kakao-yellow: #fae100;
+    --bubble-other: #ffffff;
+    --date-capsule: rgba(0,0,0,0.18);
+  }
+  html, body {
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", sans-serif;
+    background: #e9e9e9;
+  }
+  body { display: flex; justify-content: center; }
+  .app {
+    width: 100%;
+    max-width: 480px;
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    background: var(--kakao-bg);
+    position: relative;
+    overflow: hidden;
+  }
+ 
+  /* ===== 시작 화면 ===== */
+  .intro {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 28px;
+    gap: 16px;
+    text-align: center;
+    overflow-y: auto;
+  }
+  .intro h1 { font-size: 20px; color: #333; }
+  .intro p { font-size: 13px; color: #888; line-height: 1.6; }
+  .saved-box {
+    display: none;
+    width: 100%;
+    background: #fffbe6;
+    border: 1px solid #f0e0a0;
+    border-radius: 12px;
+    padding: 12px 14px;
+    text-align: left;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .saved-box .saved-info { font-size: 13px; color: #6b5d2a; line-height: 1.5; word-break: break-all; }
+  .saved-box .saved-btns { display: flex; gap: 8px; }
+  .saved-box button {
+    flex: 1; padding: 9px; border: none; border-radius: 8px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .saved-box .resume { background: var(--kakao-yellow); color: #3c2f00; }
+  .saved-box .remove { background: #f0f0f0; color: #888; }
+  .drop {
+    width: 100%;
+    border: 2px dashed #cbd5e0;
+    border-radius: 14px;
+    padding: 30px 18px;
+    color: #999;
+    font-size: 14px;
+    cursor: pointer;
+    transition: .15s;
+    background: #fafbfc;
+    line-height: 1.5;
+  }
+  .drop.drag { border-color: var(--kakao-yellow); background: #fffdf0; color: #666; }
+  .intro .field { width: 100%; display: flex; flex-direction: column; gap: 6px; text-align: left; }
+  .intro label { font-size: 12px; color: #666; padding-left: 2px; }
+  .intro input[type=text] {
+    width: 100%; padding: 12px 14px; border: 1px solid #ddd;
+    border-radius: 10px; font-size: 15px; outline: none;
+  }
+  .intro input[type=text]:focus { border-color: var(--kakao-yellow); }
+  .intro .hint { font-size: 11px; color: #aaa; padding-left: 2px; }
+  .names-pick { display: none; flex-wrap: wrap; gap: 6px; width: 100%; }
+  .names-pick .chip {
+    font-size: 12px; padding: 6px 11px; border-radius: 999px;
+    background: #f0f2f5; color: #555; cursor: pointer; border: 1px solid transparent;
+  }
+  .names-pick .chip.on { background: var(--kakao-yellow); color: #3c2f00; border-color: #e6cf00; }
+  .start-btn {
+    width: 100%; padding: 14px; border: none; border-radius: 10px;
+    background: var(--kakao-yellow); color: #3c1e1e; font-size: 15px; font-weight: 700; cursor: pointer;
+  }
+  .start-btn:disabled { background: #eee; color: #bbb; cursor: not-allowed; }
+  .sample-btn {
+    background: none; border: none; color: #8a96a3; font-size: 12px;
+    text-decoration: underline; cursor: pointer; padding: 2px;
+  }
+  input[type=file] { display: none; }
+ 
+  /* ===== 헤더 ===== */
+  .chat-header {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 12px;
+    background: var(--kakao-bg);
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    flex-shrink: 0;
+  }
+  .chat-header .back {
+    font-size: 24px; color: #333; cursor: pointer; line-height: 1;
+    background: none; border: none; padding: 0 2px;
+  }
+  .chat-header .title {
+    font-size: 16px; font-weight: 600; color: #1a1a1a;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .chat-header .count { font-size: 11px; color: #5b6b7a; flex-shrink: 0; }
+  .chat-header .spacer { flex: 1; }
+  .icon-btn {
+    background: none; border: none; font-size: 18px; cursor: pointer;
+    padding: 3px 5px; line-height: 1; border-radius: 8px; flex-shrink: 0;
+  }
+  .icon-btn:hover { background: rgba(0,0,0,0.06); }
+ 
+  /* ===== 검색바 ===== */
+  .search-bar {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: #a6bdd1;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    flex-shrink: 0;
+  }
+  .search-bar input {
+    flex: 1; min-width: 0;
+    padding: 8px 12px;
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 999px;
+    font-size: 14px;
+    outline: none;
+    background: #fff;
+  }
+  .search-bar .s-count { font-size: 12px; color: #33424f; white-space: nowrap; min-width: 44px; text-align: center; }
+  .search-bar .s-nav {
+    background: rgba(255,255,255,0.6); border: none; border-radius: 8px;
+    font-size: 13px; padding: 6px 9px; cursor: pointer; color: #333;
+  }
+  .search-bar .s-nav:disabled { opacity: .35; cursor: default; }
+  .search-bar .s-close {
+    background: none; border: none; font-size: 16px; cursor: pointer; color: #33424f; padding: 4px;
+  }
+ 
+  /* ===== 캘린더 ===== */
+  .cal {
+    display: none;
+    position: absolute;
+    top: 54px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 92%;
+    max-width: 340px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 10px 36px rgba(0,0,0,0.28);
+    z-index: 15;
+    padding: 14px;
+  }
+  .cal-head { display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .cal-head .cal-title { font-size: 15px; font-weight: 700; color: #222; flex: 1; text-align: center; }
+  .cal-head button {
+    background: #f4f5f7; border: none; border-radius: 8px;
+    font-size: 13px; padding: 6px 9px; cursor: pointer; color: #444;
+  }
+  .cal-head button:disabled { opacity: .3; cursor: default; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin-top: 10px; }
+  .cal-grid .dow { font-size: 11px; color: #999; text-align: center; padding: 4px 0 6px; }
+  .cal-grid .dow.sun { color: #e5736f; }
+  .cal-day {
+    aspect-ratio: 1;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; color: #ccc; border-radius: 50%;
+    user-select: none;
+  }
+  .cal-day.has {
+    color: #222; background: #fff3ae; font-weight: 700; cursor: pointer;
+  }
+  .cal-day.has:hover { background: var(--kakao-yellow); }
+  .cal-backdrop {
+    display: none;
+    position: absolute; inset: 0; z-index: 14;
+    background: rgba(0,0,0,0.08);
+  }
+ 
+  /* ===== 메시지 영역 ===== */
+  .messages {
+    display: none;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 8px 12px 20px;
+    position: relative;
+  }
+  .chunk { display: flex; flex-direction: column; }
+  .date-capsule {
+    align-self: center;
+    background: var(--date-capsule);
+    color: #fff; font-size: 12px;
+    padding: 5px 14px; border-radius: 999px;
+    margin: 14px 0 10px;
+  }
+  .sys-msg {
+    align-self: center;
+    background: rgba(0,0,0,0.10);
+    color: rgba(255,255,255,0.95);
+    font-size: 11.5px; padding: 5px 12px; border-radius: 8px;
+    margin: 6px 0; text-align: center; max-width: 85%; line-height: 1.5;
+  }
+  .row { display: flex; gap: 7px; margin-top: 8px; align-items: flex-end; }
+  .row.same { margin-top: 2px; }
+  .row.me { flex-direction: row-reverse; }
+  .avatar {
+    width: 38px; height: 38px; border-radius: 14px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 16px; font-weight: 600; overflow: hidden;
+  }
+  .avatar.ghost { visibility: hidden; }
+  .bubble-col { display: flex; flex-direction: column; max-width: 72%; }
+  .row.me .bubble-col { align-items: flex-end; }
+  .sender-name { font-size: 12px; color: #3d4a56; margin: 0 2px 3px; }
+  .bubble-line { display: flex; align-items: flex-end; gap: 5px; }
+  .row.me .bubble-line { flex-direction: row-reverse; }
+  .bubble {
+    padding: 8px 11px; border-radius: 14px; font-size: 14.5px; line-height: 1.45;
+    word-break: break-word; white-space: pre-wrap; box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+  }
+  .row.other .bubble { background: var(--bubble-other); border-top-left-radius: 4px; color: #1a1a1a; }
+  .row.me .bubble { background: var(--kakao-yellow); border-top-right-radius: 4px; color: #1a1a1a; }
+  .bubble.hit { box-shadow: 0 0 0 2px rgba(255, 170, 0, 0.55); }
+  .bubble.hit-current { box-shadow: 0 0 0 3px #ff9500; }
+  .bubble mark { background: #ffd83d; color: #1a1a1a; padding: 0 1px; border-radius: 2px; }
+  .time { font-size: 10.5px; color: #5b6b7a; white-space: nowrap; margin-bottom: 1px; }
+  .bubble a { color: #2b6cb0; text-decoration: underline; word-break: break-all; }
+  .row.me .bubble a { color: #1a5276; }
+  .empty-note { align-self: center; color: #5b6b7a; font-size: 13px; margin-top: 40px; text-align: center; line-height: 1.6; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div class="app">
+ 
+  <!-- 시작 화면 -->
+  <div class="intro" id="intro">
+    <h1>💬 카카오톡 백업 뷰어</h1>
+    <p>내보낸 .txt 대화 파일을 올리면<br>카카오톡 화면처럼 보여드려요. (대용량 OK)</p>
+ 
+    <div class="saved-box" id="savedBox">
+      <div class="saved-info" id="savedInfo"></div>
+      <div class="saved-btns">
+        <button class="resume" id="resumeBtn">이어보기</button>
+        <button class="remove" id="removeBtn">삭제</button>
+      </div>
+    </div>
+ 
+    <label class="drop" id="drop" for="fileInput" tabindex="0">
+      여기로 .txt 파일을 끌어다 놓거나<br>눌러서 선택하세요
+    </label>
+    <input type="file" id="fileInput" accept=".txt,text/plain">
+    <button class="sample-btn" id="sampleBtn">샘플 대화로 미리보기</button>
+ 
+    <div class="field">
+      <label for="myName">내 이름 (오른쪽 노란 말풍선으로 표시)</label>
+      <input type="text" id="myName" placeholder="대화 속 내 이름 그대로 입력" autocomplete="off">
+      <div class="names-pick" id="namesPick"></div>
+      <div class="hint">파일을 올리면 등장하는 이름들을 눌러서 고를 수도 있어요. 올린 대화는 이 브라우저에 저장돼 다음에 또 볼 수 있어요.</div>
+    </div>
+ 
+    <button class="start-btn" id="startBtn" disabled>대화 보기</button>
+  </div>
+ 
+  <!-- 채팅 헤더 -->
+  <div class="chat-header" id="chatHeader">
+    <button class="back" id="backBtn" title="처음으로">‹</button>
+    <span class="title" id="headerTitle">대화</span>
+    <span class="count" id="headerCount"></span>
+    <span class="spacer"></span>
+    <button class="icon-btn" id="searchBtn" title="검색">🔍</button>
+    <button class="icon-btn" id="calBtn" title="날짜 이동">📅</button>
+  </div>
+ 
+  <!-- 검색바 -->
+  <div class="search-bar" id="searchBar">
+    <input type="text" id="searchInput" placeholder="키워드 검색 (Enter)" autocomplete="off">
+    <span class="s-count" id="searchCount"></span>
+    <button class="s-nav" id="searchPrev" title="이전(과거)">▲</button>
+    <button class="s-nav" id="searchNext" title="다음(최근)">▼</button>
+    <button class="s-close" id="searchClose" title="닫기">✕</button>
+  </div>
+ 
+  <!-- 캘린더 -->
+  <div class="cal-backdrop" id="calBackdrop"></div>
+  <div class="cal" id="cal">
+    <div class="cal-head">
+      <button id="calPrevY" title="이전 해">«</button>
+      <button id="calPrevM" title="이전 달">‹</button>
+      <span class="cal-title" id="calTitle"></span>
+      <button id="calNextM" title="다음 달">›</button>
+      <button id="calNextY" title="다음 해">»</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+ 
+  <!-- 메시지 -->
+  <div class="messages" id="messages"></div>
+ 
+</div>
+ 
+<script>
+(function () {
+  "use strict";
+ 
+  var rawText = "";
+  var parsedItems = [];
+  var detectedNames = [];
+  var chosenName = "";
+  var fileMeta = null;        // {fileName, size}
+ 
+  // 날짜 정보
+  var dateMap = {};           // "y-m-d" -> item index
+  var dateList = [];          // [{y, m, d, index}] 시간순
+  var calY = 0, calM = 0;     // 캘린더 현재 표시 (m: 1~12)
+ 
+  // 검색 상태
+  var search = { query: "", matches: [], set: null, pos: -1 };
+ 
+  // 가상 스크롤
+  var CHUNK = 60;
+  var EST = 56;
+  var chunks = [];
+  var observer = null;
+ 
+  var $ = function (id) { return document.getElementById(id); };
+  var intro = $("intro"), drop = $("drop"), fileInput = $("fileInput"),
+      myName = $("myName"), namesPick = $("namesPick"), startBtn = $("startBtn"),
+      chatHeader = $("chatHeader"), headerTitle = $("headerTitle"),
+      headerCount = $("headerCount"), messages = $("messages"), backBtn = $("backBtn"),
+      savedBox = $("savedBox"), savedInfo = $("savedInfo"),
+      resumeBtn = $("resumeBtn"), removeBtn = $("removeBtn"),
+      searchBtn = $("searchBtn"), searchBar = $("searchBar"), searchInput = $("searchInput"),
+      searchCount = $("searchCount"), searchPrev = $("searchPrev"), searchNext = $("searchNext"),
+      searchClose = $("searchClose"),
+      calBtn = $("calBtn"), cal = $("cal"), calBackdrop = $("calBackdrop"),
+      calTitle = $("calTitle"), calGrid = $("calGrid"),
+      calPrevY = $("calPrevY"), calPrevM = $("calPrevM"),
+      calNextM = $("calNextM"), calNextY = $("calNextY");
+ 
+  // 지원 형식
+  //  TS:      2025년 3월 31일 오후 7:39, 이름: 메시지   (뒤에 ", ..." 없으면 날짜 캡슐)
+  //  TS2:     2025. 3. 31. 오후 7:39, 이름 : 메시지     (안드로이드)
+  //  DATEHDR: --------------- 2025년 3월 31일 월요일 ---------------  (PC 날짜 구분선)
+  //  PCMSG:   [이름] [오후 7:39] 메시지                  (PC, 직전 날짜 구분선 기준)
+  var TS = /^(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일\s*(오전|오후)\s*(\d{1,2}):(\d{2})(?:\s*,\s*([\s\S]*))?$/;
+  var TS2 = /^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(오전|오후)\s*(\d{1,2}):(\d{2})(?:\s*,\s*([\s\S]*))?$/;
+  var DATEHDR = /^-*\s*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일(?:\s*[월화수목금토일]요일)?\s*-*$/;
+  var PCMSG = /^\[(.+?)\]\s*\[(오전|오후)\s*(\d{1,2}):(\d{2})\]\s*([\s\S]*)$/;
+  var WEEK = ["일", "월", "화", "수", "목", "금", "토"];
+ 
+  // ---------- 파싱 ----------
+  function parse(text) {
+    var lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+    var items = [];
+    var last = null;
+    var cur = null;   // PC 형식용 최근 날짜 컨텍스트
+ 
+    function pushDate(y, mo, d) {
+      cur = { y: y, m: mo, d: d };
+      items.push({ type: "date", y: y, m: mo, d: d,
+                   dateKey: y + "-" + mo + "-" + d,
+                   jsDate: new Date(y, mo - 1, d) });
+      last = null;
+    }
+    function pushMsg(name, msg, ampm, hh, mm, y, mo, d) {
+      var item = {
+        type: "msg", name: name, text: msg,
+        ampm: ampm, min: +mm,
+        timeLabel: ampm + " " + parseInt(hh, 10) + ":" + mm,
+        y: y, m: mo, d: d,
+        dateKey: y + "-" + mo + "-" + d
+      };
+      items.push(item);
+      last = item;
+    }
+ 
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      var t = line.trim();
+      var m = TS.exec(t) || TS2.exec(t);
+ 
+      if (m) {
+        var year = +m[1], mon = +m[2], day = +m[3];
+        var rest = m[7];
+ 
+        if (rest === undefined || rest.trim() === "") {
+          pushDate(year, mon, day);
+          continue;
+        }
+        cur = { y: year, m: mon, d: day };
+ 
+        // "콜론+공백"을 우선 구분자로 사용 — 이름에 콜론이 있거나 메시지에 콜론이 있어도 안전
+        var ci = rest.indexOf(": ");
+        var sepLen = 2;
+        if (ci === -1) { ci = rest.indexOf(":"); sepLen = 1; }
+        var name, msg;
+        if (ci === -1) { name = rest.trim(); msg = ""; }
+        else { name = rest.slice(0, ci).trim(); msg = rest.slice(ci + sepLen); }
+        if (msg.charAt(0) === " ") msg = msg.slice(1);
+ 
+        pushMsg(name, msg, m[4], m[5], m[6], year, mon, day);
+        continue;
+      }
+ 
+      var dh = DATEHDR.exec(t);
+      if (dh) { pushDate(+dh[1], +dh[2], +dh[3]); continue; }
+ 
+      var pc = cur && PCMSG.exec(t);
+      if (pc) { pushMsg(pc[1], pc[5], pc[2], pc[3], pc[4], cur.y, cur.m, cur.d); continue; }
+ 
+      if (last) {
+        last.text += "\n" + line;
+      } else if (t !== "") {
+        items.push({ type: "sys", text: t });
+      }
+    }
+    // 파일 끝/구분선 직전의 빈 줄이 말풍선에 남지 않게 끝 공백 제거
+    for (var k = 0; k < items.length; k++) {
+      if (items[k].type === "msg") items[k].text = items[k].text.replace(/\s+$/, "");
+    }
+    return items;
+  }
+ 
+  function collectNames(items) {
+    var seen = {}, order = [];
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (it.type === "msg" && it.name && !seen[it.name]) { seen[it.name] = true; order.push(it.name); }
+    }
+    return order;
+  }
+ 
+  // 날짜 → 인덱스 맵 (캡슐 줄 우선, 없으면 그 날짜 첫 메시지)
+  function collectDates(items) {
+    dateMap = {};
+    dateList = [];
+    var i, it;
+    for (i = 0; i < items.length; i++) {
+      it = items[i];
+      if (it.type === "date" && !(it.dateKey in dateMap)) {
+        dateMap[it.dateKey] = i;
+        dateList.push({ y: it.y, m: it.m, d: it.d, index: i });
+      }
+    }
+    for (i = 0; i < items.length; i++) {
+      it = items[i];
+      if (it.type === "msg" && !(it.dateKey in dateMap)) {
+        dateMap[it.dateKey] = i;
+        dateList.push({ y: it.y, m: it.m, d: it.d, index: i });
+      }
+    }
+    dateList.sort(function (a, b) {
+      return (a.y - b.y) || (a.m - b.m) || (a.d - b.d);
+    });
+  }
+ 
+  // ---------- 표시 유틸 ----------
+  function colorFor(name) {
+    var h = 0;
+    for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+    return "hsl(" + h + ", 45%, 58%)";
+  }
+  function escapeHtml(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function escapeRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+ 
+  // URL 링크 + 검색어 하이라이트 (URL 내부는 mark 제외)
+  function renderText(text, query) {
+    var parts = text.split(/(https?:\/\/[^\s]+)/g);
+    var markRe = null;
+    if (query) markRe = new RegExp("(" + escapeRe(query) + ")", "gi");
+    var out = "";
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      if (/^https?:\/\//.test(p)) {
+        out += '<a href="' + escapeHtml(p) + '" target="_blank" rel="noopener">' + escapeHtml(p) + "</a>";
+      } else if (markRe) {
+        // 원문 기준으로 매칭 경계를 잡은 뒤 조각별 이스케이프 (엔티티 내부 침범 방지)
+        var segs = p.split(markRe);
+        for (var j = 0; j < segs.length; j++) {
+          var e = escapeHtml(segs[j]);
+          out += (j % 2 === 1) ? "<mark>" + e + "</mark>" : e;
+        }
+      } else {
+        out += escapeHtml(p);
+      }
+    }
+    return out;
+  }
+ 
+  // ---------- 아이템 → DOM ----------
+  function makeEl(items, idx, me) {
+    var it = items[idx];
+ 
+    if (it.type === "date") {
+      var cap = document.createElement("div");
+      cap.className = "date-capsule";
+      cap.textContent = it.y + "년 " + it.m + "월 " + it.d + "일 " + WEEK[it.jsDate.getDay()] + "요일";
+      return cap;
+    }
+    if (it.type === "sys") {
+      var sy = document.createElement("div");
+      sy.className = "sys-msg";
+      sy.textContent = it.text;
+      return sy;
+    }
+ 
+    var isMe = (it.name === me);
+    var prev = items[idx - 1];
+    var next = items[idx + 1];
+    var sameAsPrev = !!(prev && prev.type === "msg" && prev.name === it.name);
+    var showTime = !(next && next.type === "msg" && next.name === it.name &&
+                     next.timeLabel === it.timeLabel && next.dateKey === it.dateKey);
+ 
+    var row = document.createElement("div");
+    row.className = "row " + (isMe ? "me" : "other") + (sameAsPrev ? " same" : "");
+ 
+    if (!isMe) {
+      var av = document.createElement("div");
+      av.className = "avatar" + (sameAsPrev ? " ghost" : "");
+      av.style.background = colorFor(it.name);
+      av.textContent = it.name.charAt(0);
+      row.appendChild(av);
+    }
+ 
+    var col = document.createElement("div");
+    col.className = "bubble-col";
+ 
+    if (!isMe && !sameAsPrev) {
+      var nm = document.createElement("div");
+      nm.className = "sender-name";
+      nm.textContent = it.name;
+      col.appendChild(nm);
+    }
+ 
+    var bl = document.createElement("div");
+    bl.className = "bubble-line";
+    var bub = document.createElement("div");
+    bub.className = "bubble";
+    var isHit = search.set && search.set.has(idx);
+    if (isHit) {
+      bub.className += (idx === search.matches[search.pos]) ? " hit hit-current" : " hit";
+    }
+    bub.innerHTML = renderText(it.text, isHit ? search.query : "");
+    bl.appendChild(bub);
+ 
+    if (showTime) {
+      var tm = document.createElement("div");
+      tm.className = "time";
+      tm.textContent = it.timeLabel;
+      bl.appendChild(tm);
+    }
+    col.appendChild(bl);
+    row.appendChild(col);
+    return row;
+  }
+ 
+  // ---------- 가상 스크롤 ----------
+  function buildChunks(items, me) {
+    if (observer) observer.disconnect();
+    messages.innerHTML = "";
+    chunks = [];
+    if (!items.length) return;
+ 
+    for (var start = 0; start < items.length; start += CHUNK) {
+      var end = Math.min(start + CHUNK, items.length);
+      var el = document.createElement("div");
+      el.className = "chunk";
+      el.style.minHeight = ((end - start) * EST) + "px";
+      messages.appendChild(el);
+      chunks.push({ el: el, start: start, end: end, rendered: false, items: items, me: me });
+    }
+ 
+    observer = new IntersectionObserver(onIntersect, { root: messages, rootMargin: "1200px 0px" });
+    chunks.forEach(function (c) { observer.observe(c.el); });
+  }
+ 
+  function renderChunk(c) {
+    if (c.rendered) return;
+    var before = c.el.offsetHeight;
+    var frag = document.createDocumentFragment();
+    for (var i = c.start; i < c.end; i++) frag.appendChild(makeEl(c.items, i, c.me));
+    c.el.style.minHeight = "";
+    c.el.appendChild(frag);
+    c.rendered = true;
+    // 추정 높이 → 실제 높이로 바뀔 때, 뷰포트 위쪽 청크면 차이만큼 스크롤 보정 (점프 위치 어긋남 방지)
+    var delta = c.el.offsetHeight - before;
+    if (delta && c.el.offsetTop + before <= messages.scrollTop) {
+      messages.scrollTop += delta;
+    }
+  }
+  function unloadChunk(c) {
+    if (!c.rendered) return;
+    c.el.style.minHeight = c.el.offsetHeight + "px";
+    c.el.innerHTML = "";
+    c.rendered = false;
+  }
+  function onIntersect(entries) {
+    for (var i = 0; i < entries.length; i++) {
+      var c = chunkOf(entries[i].target);
+      if (!c) continue;
+      if (entries[i].isIntersecting) renderChunk(c); else unloadChunk(c);
+    }
+  }
+  function chunkOf(el) {
+    for (var i = 0; i < chunks.length; i++) if (chunks[i].el === el) return chunks[i];
+    return null;
+  }
+  function rerenderRendered() {
+    chunks.forEach(function (c) {
+      if (c.rendered) {
+        c.rendered = false;
+        c.el.innerHTML = "";
+        renderChunk(c);
+      }
+    });
+  }
+  function jumpToIndex(index, block) {
+    var ci = Math.floor(index / CHUNK);
+    var c = chunks[ci];
+    if (!c) return;
+    renderChunk(c);
+    var child = c.el.children[index - c.start];
+    if (!child) return;
+    child.scrollIntoView({ block: block || "start" });
+    // 주변 청크가 비동기 렌더되며 높이가 변할 수 있어 한 프레임 뒤 재정렬
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        var el = c.rendered ? c.el.children[index - c.start] : null;
+        if (el) el.scrollIntoView({ block: block || "start" });
+      });
+    });
+  }
+ 
+  // ---------- 캘린더 ----------
+  function monthKey(y, m) { return y * 12 + (m - 1); }
+ 
+  function openCal() {
+    if (!dateList.length) return;
+    closeSearchPanelOnly();
+    var lastD = dateList[dateList.length - 1];
+    if (!calY) { calY = lastD.y; calM = lastD.m; }
+    renderCal();
+    cal.style.display = "block";
+    calBackdrop.style.display = "block";
+  }
+  function closeCal() {
+    cal.style.display = "none";
+    calBackdrop.style.display = "none";
+  }
+  function renderCal() {
+    var minK = monthKey(dateList[0].y, dateList[0].m);
+    var maxK = monthKey(dateList[dateList.length - 1].y, dateList[dateList.length - 1].m);
+    var curK = monthKey(calY, calM);
+ 
+    calTitle.textContent = calY + "년 " + calM + "월";
+    calPrevY.disabled = curK - 12 < minK && monthKey(calY - 1, 12) < minK;
+    calNextY.disabled = monthKey(calY + 1, 1) > maxK;
+    calPrevM.disabled = curK <= minK;
+    calNextM.disabled = curK >= maxK;
+ 
+    calGrid.innerHTML = "";
+    for (var w = 0; w < 7; w++) {
+      var dw = document.createElement("div");
+      dw.className = "dow" + (w === 0 ? " sun" : "");
+      dw.textContent = WEEK[w];
+      calGrid.appendChild(dw);
+    }
+    var firstDow = new Date(calY, calM - 1, 1).getDay();
+    var daysIn = new Date(calY, calM, 0).getDate();
+ 
+    for (var b = 0; b < firstDow; b++) {
+      calGrid.appendChild(document.createElement("div"));
+    }
+    for (var d = 1; d <= daysIn; d++) {
+      var cell = document.createElement("div");
+      cell.className = "cal-day";
+      cell.textContent = d;
+      var key = calY + "-" + calM + "-" + d;
+      if (key in dateMap) {
+        cell.className += " has";
+        cell.dataset.key = key;
+        cell.addEventListener("click", function () {
+          jumpToIndex(dateMap[this.dataset.key]);
+          closeCal();
+        });
+      }
+      calGrid.appendChild(cell);
+    }
+  }
+  function shiftCal(deltaMonths) {
+    var minK = monthKey(dateList[0].y, dateList[0].m);
+    var maxK = monthKey(dateList[dateList.length - 1].y, dateList[dateList.length - 1].m);
+    var k = monthKey(calY, calM) + deltaMonths;
+    if (k < minK) k = minK;
+    if (k > maxK) k = maxK;
+    calY = Math.floor(k / 12);
+    calM = (k % 12) + 1;
+    renderCal();
+  }
+  calBtn.addEventListener("click", function () {
+    if (cal.style.display === "block") closeCal(); else openCal();
+  });
+  calBackdrop.addEventListener("click", closeCal);
+  calPrevY.addEventListener("click", function () { shiftCal(-12); });
+  calNextY.addEventListener("click", function () { shiftCal(12); });
+  calPrevM.addEventListener("click", function () { shiftCal(-1); });
+  calNextM.addEventListener("click", function () { shiftCal(1); });
+ 
+  // ---------- 검색 ----------
+  function openSearch() {
+    closeCal();
+    searchBar.style.display = "flex";
+    searchInput.focus();
+  }
+  function closeSearchPanelOnly() {
+    searchBar.style.display = "none";
+  }
+  function closeSearch() {
+    closeSearchPanelOnly();
+    if (search.query) {
+      search.query = ""; search.matches = []; search.set = null; search.pos = -1;
+      searchInput.value = "";
+      searchCount.textContent = "";
+      rerenderRendered();
+    }
+  }
+  function runSearch() {
+    var q = searchInput.value.trim();
+    if (!q) { closeSearch(); searchBar.style.display = "flex"; return; }
+ 
+    search.query = q;
+    search.matches = [];
+    var lower = q.toLowerCase();
+    for (var i = 0; i < parsedItems.length; i++) {
+      var it = parsedItems[i];
+      if (it.type === "msg" && it.text.toLowerCase().indexOf(lower) !== -1) {
+        search.matches.push(i);
+      }
+    }
+    search.set = new Set(search.matches);
+    search.pos = search.matches.length - 1;  // 가장 최근 결과부터
+ 
+    updateSearchCount();
+    rerenderRendered();
+    if (search.pos >= 0) jumpToIndex(search.matches[search.pos], "center");
+  }
+  function updateSearchCount() {
+    var len = search.matches.length;
+    searchCount.textContent = len ? (search.pos + 1) + "/" + len : "0건";
+    searchPrev.disabled = len === 0;
+    searchNext.disabled = len === 0;
+  }
+  function navSearch(dir) {
+    var len = search.matches.length;
+    if (!len) return;
+    search.pos = (search.pos + dir + len) % len;
+    updateSearchCount();
+    rerenderRendered();
+    jumpToIndex(search.matches[search.pos], "center");
+  }
+  searchBtn.addEventListener("click", function () {
+    if (searchBar.style.display === "flex") closeSearch(); else openSearch();
+  });
+  searchClose.addEventListener("click", closeSearch);
+  searchInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") runSearch();
+    if (e.key === "Escape") closeSearch();
+  });
+  searchPrev.addEventListener("click", function () { navSearch(-1); });
+  searchNext.addEventListener("click", function () { navSearch(1); });
+ 
+  // ---------- IndexedDB 저장 ----------
+  var DB_NAME = "kakao-viewer", STORE = "kv";
+  function idbOpen() {
+    return new Promise(function (res, rej) {
+      if (!window.indexedDB) return rej(new Error("no idb"));
+      var r = indexedDB.open(DB_NAME, 1);
+      r.onupgradeneeded = function (e) { e.target.result.createObjectStore(STORE); };
+      r.onsuccess = function (e) { res(e.target.result); };
+      r.onerror = function () { rej(r.error); };
+    });
+  }
+  function idbSet(key, val) {
+    return idbOpen().then(function (db) {
+      return new Promise(function (res, rej) {
+        var tx = db.transaction(STORE, "readwrite");
+        tx.objectStore(STORE).put(val, key);
+        tx.oncomplete = function () { db.close(); res(); };
+        tx.onerror = function () { db.close(); rej(tx.error); };
+        tx.onabort = function () { db.close(); rej(tx.error); };
+      });
+    });
+  }
+  function idbGet(key) {
+    return idbOpen().then(function (db) {
+      return new Promise(function (res, rej) {
+        var tx = db.transaction(STORE, "readonly");
+        var rq = tx.objectStore(STORE).get(key);
+        rq.onsuccess = function () { db.close(); res(rq.result); };
+        rq.onerror = function () { db.close(); rej(rq.error); };
+        tx.onabort = function () { db.close(); rej(tx.error); };
+      });
+    });
+  }
+  function idbDel(key) {
+    return idbOpen().then(function (db) {
+      return new Promise(function (res, rej) {
+        var tx = db.transaction(STORE, "readwrite");
+        tx.objectStore(STORE).delete(key);
+        tx.oncomplete = function () { db.close(); res(); };
+        tx.onerror = function () { db.close(); rej(tx.error); };
+        tx.onabort = function () { db.close(); rej(tx.error); };
+      });
+    });
+  }
+  function saveCurrent() {
+    if (!rawText) return;
+    idbSet("current", {
+      text: rawText,
+      myName: myName.value.trim(),
+      fileName: fileMeta ? fileMeta.fileName : "대화.txt",
+      size: fileMeta ? fileMeta.size : rawText.length,
+      savedAt: Date.now()
+    }).catch(function () { /* 사파리 시크릿 모드 등 저장 불가 환경은 무시 */ });
+  }
+  function checkSaved() {
+    idbGet("current").then(function (rec) {
+      if (!rec || !rec.text) return;
+      var mb = (rec.size / 1048576).toFixed(1);
+      var when = new Date(rec.savedAt).toLocaleString("ko-KR");
+      savedInfo.textContent = "💾 " + rec.fileName + " (" + mb + "MB) · " + when + " 저장";
+      savedBox.style.display = "flex";
+      resumeBtn.onclick = function () {
+        loadParsed(rec.text, { fileName: rec.fileName, size: rec.size });
+        myName.value = rec.myName || "";
+        syncChips();
+        if (parsedItems.length) startView();
+      };
+      removeBtn.onclick = function () {
+        idbDel("current").catch(function () {});
+        savedBox.style.display = "none";
+      };
+    }).catch(function () {});
+  }
+ 
+  // ---------- 파일/시작 흐름 ----------
+  function setDropDefault() {
+    drop.innerHTML = "여기로 .txt 파일을 끌어다 놓거나<br>눌러서 선택하세요";
+  }
+ 
+  function loadParsed(text, meta) {
+    rawText = text;
+    fileMeta = meta;
+    parsedItems = parse(text);
+    detectedNames = collectNames(parsedItems);
+    collectDates(parsedItems);
+    calY = 0; calM = 0;
+    chosenName = "";
+    if (detectedNames.indexOf(myName.value.trim()) === -1) myName.value = "";
+    search.query = ""; search.matches = []; search.set = null; search.pos = -1;
+    searchInput.value = "";
+    searchCount.textContent = "";
+    buildNameChips();
+    startBtn.disabled = detectedNames.length === 0;
+  }
+ 
+  // BOM으로 UTF-16 인코딩 감지 (카카오톡 PC 내보내기 대응)
+  function decodeBuf(buf) {
+    var u8 = new Uint8Array(buf, 0, Math.min(2, buf.byteLength));
+    var enc = "utf-8";
+    if (u8.length >= 2 && u8[0] === 0xFF && u8[1] === 0xFE) enc = "utf-16le";
+    else if (u8.length >= 2 && u8[0] === 0xFE && u8[1] === 0xFF) enc = "utf-16be";
+    try { return new TextDecoder(enc).decode(buf); }
+    catch (err) { return new TextDecoder("utf-8").decode(buf); }
+  }
+ 
+  function readFile(file) {
+    if (!file) return;
+    drop.innerHTML = "파일 읽는 중…";
+    startBtn.disabled = true;
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var text = decodeBuf(e.target.result);
+      setTimeout(function () {
+        loadParsed(text, { fileName: file.name, size: file.size });
+        if (detectedNames.length) {
+          var sizeMB = (file.size / 1048576).toFixed(1);
+          drop.innerHTML = "✅ 불러왔어요 · " + sizeMB + "MB · 등장 인물 " + detectedNames.length +
+            "명<br>이름 확인 후 '대화 보기'를 누르세요";
+          saveCurrent();
+        } else {
+          var first = "";
+          var ls = text.split("\n");
+          for (var i = 0; i < ls.length; i++) { if (ls[i].trim()) { first = ls[i].trim().slice(0, 60); break; } }
+          drop.innerHTML = "⚠️ 메시지 형식을 인식하지 못했어요. 다시 선택해 보세요.<br>" +
+            '<span style="font-size:11px;color:#c08080">파일 첫 줄: ' + escapeHtml(first) + "</span>";
+        }
+      }, 20);
+    };
+    reader.onerror = function () {
+      setDropDefault();
+      var name = (reader.error && reader.error.name) || "알 수 없는 오류";
+      var tip = (name === "NotReadableError" || name === "SecurityError")
+        ? "\n\nmacOS 또는 보안 프로그램이 브라우저의 파일 접근을 막은 것 같아요.\n· 시스템 설정 → 개인정보 보호 및 보안 → 파일 및 폴더 → 브라우저 권한 허용\n· 또는 파일을 데스크탑/다운로드/문서가 아닌 폴더(예: 홈)로 옮겨 다시 시도"
+        : "";
+      alert("파일을 읽지 못했습니다. (" + name + ")" + tip);
+    };
+    reader.readAsArrayBuffer(file);
+  }
+ 
+  function buildNameChips() {
+    namesPick.innerHTML = "";
+    namesPick.style.display = detectedNames.length ? "flex" : "none";
+    detectedNames.forEach(function (n) {
+      var c = document.createElement("span");
+      c.className = "chip";
+      c.textContent = n;
+      c.onclick = function () { myName.value = n; syncChips(); };
+      namesPick.appendChild(c);
+    });
+    syncChips();
+  }
+  function syncChips() {
+    Array.prototype.forEach.call(namesPick.children, function (c) {
+      c.classList.toggle("on", c.textContent === myName.value.trim());
+    });
+  }
+ 
+  function startView() {
+    chosenName = myName.value.trim();
+    headerTitle.textContent = detectedNames.length === 2
+      ? (detectedNames.filter(function (n) { return n !== chosenName; })[0] || "대화")
+      : (detectedNames.length === 1 ? detectedNames[0] : "대화 · " + detectedNames.length + "명");
+    var msgTotal = 0;
+    for (var i = 0; i < parsedItems.length; i++) if (parsedItems[i].type === "msg") msgTotal++;
+    headerCount.textContent = msgTotal + "개";
+    calBtn.style.display = dateList.length ? "" : "none";
+ 
+    intro.style.display = "none";
+    chatHeader.style.display = "flex";
+    messages.style.display = "block";
+ 
+    buildChunks(parsedItems, chosenName);
+ 
+    if (!parsedItems.length) {
+      messages.innerHTML = '<div class="empty-note">메시지를 찾지 못했어요.\n파일 형식이 \'2025년 3월 31일 오후 7:39, 이름: 메시지\' 인지 확인해주세요.</div>';
+    }
+    messages.scrollTop = 0;
+    saveCurrent();
+  }
+ 
+  fileInput.addEventListener("change", function () { readFile(this.files[0]); this.value = ""; });
+  myName.addEventListener("input", syncChips);
+ 
+  ["dragenter", "dragover"].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("drag"); });
+  });
+  ["dragleave", "drop"].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove("drag"); });
+  });
+  drop.addEventListener("drop", function (e) {
+    var f = e.dataTransfer.files[0];
+    if (f) readFile(f);
+  });
+  // label 기본 동작이 막히는 환경 대비 — 직접 파일 선택창을 연다
+  drop.addEventListener("click", function (e) {
+    e.preventDefault();
+    fileInput.click();
+  });
+ 
+  startBtn.addEventListener("click", startView);
+ 
+  // 서버에서 샘플을 직접 받아오므로 로컬 파일 권한과 무관 — 뷰어 자체 동작 확인용
+  var sampleBtn = $("sampleBtn");
+  if (location.protocol === "file:") sampleBtn.style.display = "none";
+  sampleBtn.addEventListener("click", function () {
+    fetch("kakao_sample.txt").then(function (r) {
+      if (!r.ok) throw new Error(r.status);
+      return r.arrayBuffer();
+    }).then(function (buf) {
+      loadParsed(decodeBuf(buf), { fileName: "kakao_sample.txt", size: buf.byteLength });
+      drop.innerHTML = "✅ 샘플 대화를 불러왔어요 · 등장 인물 " + detectedNames.length +
+        "명<br>이름 선택 후 '대화 보기'를 누르세요";
+    }).catch(function () { alert("샘플 파일을 불러오지 못했습니다."); });
+  });
+ 
+  backBtn.addEventListener("click", function () {
+    closeCal();
+    closeSearch();
+    intro.style.display = "flex";
+    chatHeader.style.display = "none";
+    searchBar.style.display = "none";
+    messages.style.display = "none";
+    checkSaved();
+  });
+ 
+  // 시작 시 저장된 대화 확인
+  checkSaved();
+})();
+</script>
+</body>
+</html>
+ 
